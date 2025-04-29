@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer 3 Pati</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2a6b2a;
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .players {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+        .player {
+            background-color: #1a4a1a;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px;
+            min-width: 200px;
+            position: relative;
+        }
+        .player.active {
+            box-shadow: 0 0 15px gold;
+        }
+        .player.winner {
+            box-shadow: 0 0 20px #ffd700;
+            background-color: #0d3a0d;
+        }
+        .player.disconnected {
+            opacity: 0.6;
+            background-color: #333;
+        }
+        .player h3 {
+            margin-top: 0;
+            border-bottom: 1px solid white;
+            padding-bottom: 5px;
+        }
+        .cards {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 10px;
+            min-height: 70px;
+        }
+        .card {
+            width: 40px;
+            height: 60px;
+            background-color: white;
+            color: black;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+        .card.hearts, .card.diamonds {
+            color: red;
+        }
+        .card.selected {
+            transform: translateY(-10px);
+            box-shadow: 0 5px 5px rgba(0,0,0,0.5);
+        }
+        .card.joker {
+            background-color: #f0f0f0;
+        }
+        .card.can-play {
+            border: 2px solid gold;
+        }
+        .controls {
+            margin: 20px 0;
+            background-color: #1a4a1a;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        select, input {
+            padding: 8px;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        .game-info {
+            background-color: #1a4a1a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .pile {
+            margin: 20px auto;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 300px;
+        }
+        .pile h3 {
+            margin-top: 0;
+        }
+        .pile-cards {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            min-height: 70px;
+        }
+        .player-stats {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 12px;
+            background-color: rgba(0,0,0,0.3);
+            padding: 2px 5px;
+            border-radius: 10px;
+        }
+        .connection-panel {
+            background-color: #1a4a1a;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .action-buttons {
+            margin-top: 10px;
+        }
+        .draw-card-btn {
+            background-color: #f39c12;
+        }
+        .game-message {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: rgba(0,0,0,0.3);
+            border-radius: 5px;
+        }
+        @media (max-width: 768px) {
+            .players {
+                flex-direction: column;
+            }
+            .player {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multiplayer 3 Pati</h1>
+        
+        <div class="game-area">
+            <div class="connection-panel" id="connectionPanel">
+                <h3>Multiplayer Setup</h3>
+                <div>
+                    <input type="text" id="playerName" placeholder="Your Name" maxlength="10">
+                    <input type="text" id="roomCode" placeholder="Room Code" maxlength="6">
+                </div>
+                <div>
+                    <button id="createBtn">Create Room</button>
+                    <button id="joinBtn">Join Room</button>
+                    <button id="startBtn" disabled>Start Game</button>
+                </div>
+                <div id="connectionStatus">Not connected</div>
+                <div id="playerList"></div>
+            </div>
+            
+            <div class="controls" id="gameControls" style="display: none;">
+                <div class="game-message" id="gameMessage">Waiting for game to start...</div>
+                <div class="action-buttons">
+                    <button id="drawCardBtn" class="draw-card-btn" disabled>Draw Card</button>
+                    <button id="playCardBtn" disabled>Play Selected</button>
+                </div>
+            </div>
+            
+            <div class="pile" id="pileArea" style="display: none;">
+                <h3>Playing Pile</h3>
+                <div class="pile-cards" id="pileCards"></div>
+            </div>
+            
+            <div class="players" id="playersContainer">
+                <!-- Players will be added here -->
+            </div>
+            
+            <div class="game-info">
+                <h3>Game Rules</h3>
+                <p><strong>Starting:</strong> Players with 7♠️/7♥️/7♦️/7♣️ must play them first</p>
+                <p><strong>Playing:</strong> On 7♠️, you can play 6♠️ or 8♠️. Same for other suits.</p>
+                <p><strong>No Playable Card:</strong> Draw one card blindly from next player</p>
+                <p><strong>Drawn Card Unplayable:</strong> Keep it and your turn ends</p>
+                <p><strong>Winning:</strong> First to empty hand wins. Last player with cards loses.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+        const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        let deck = [];
+        let players = [];
+        let currentPlayer = null;
+        let gameStarted = false;
+        let lastPlayedCards = [];
+        let winners = [];
+        let selectedCardIndex = null;
+        let myPlayerId = null;
+        let myName = "";
+        let roomCode = "";
+        
+        // Simulated WebSocket connection (in real app, use actual WebSocket)
+        let socket = {
+            send: (data) => console.log("Would send:", data),
+            onmessage: null
+        };
+        
+        // DOM elements
+        const createBtn = document.getElementById('createBtn');
+        const joinBtn = document.getElementById('joinBtn');
+        const startBtn = document.getElementById('startBtn');
+        const playerNameInput = document.getElementById('playerName');
+        const roomCodeInput = document.getElementById('roomCode');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const playerList = document.getElementById('playerList');
+        const gameControls = document.getElementById('gameControls');
+        const gameMessage = document.getElementById('gameMessage');
+        const drawCardBtn = document.getElementById('drawCardBtn');
+        const playCardBtn = document.getElementById('playCardBtn');
+        const connectionPanel = document.getElementById('connectionPanel');
+        
+        // Event listeners
+        createBtn.addEventListener('click', createRoom);
+        joinBtn.addEventListener('click', joinRoom);
+        startBtn.addEventListener('click', startGame);
+        drawCardBtn.addEventListener('click', drawFromNextPlayer);
+        playCardBtn.addEventListener('click', playSelectedCard);
+        
+        // Initialize game
+        resetGame();
+        
+        // Connection functions
+        function createRoom() {
+            myName = playerNameInput.value.trim() || "Player" + Math.floor(Math.random() * 1000);
+            roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            roomCodeInput.value = roomCode;
+            
+            connectionStatus.textContent = `Room created: ${roomCode}`;
+            connectionStatus.style.color = "lightgreen";
+            
+            // Simulate server response
+            setTimeout(() => {
+                myPlayerId = 0;
+                players = [{id: 0, name: myName, cards: [], isOut: false}];
+                updatePlayerList();
+                startBtn.disabled = false;
+            }, 500);
+        }
+        
+        function joinRoom() {
+            myName = playerNameInput.value.trim() || "Player" + Math.floor(Math.random() * 1000);
+            roomCode = roomCodeInput.value.trim().toUpperCase();
+            
+            if (!roomCode) {
+                connectionStatus.textContent = "Please enter a room code";
+                connectionStatus.style.color = "red";
+                return;
+            }
+            
+            connectionStatus.textContent = `Joining room: ${roomCode}...`;
+            connectionStatus.style.color = "yellow";
+            
+            // Simulate server response
+            setTimeout(() => {
+                myPlayerId = 1;
+                players = [
+                    {id: 0, name: "Host", cards: [], isOut: false},
+                    {id: 1, name: myName, cards: [], isOut: false}
+                ];
+                updatePlayerList();
+                connectionStatus.textContent = `Joined room: ${roomCode}`;
+                connectionStatus.style.color = "lightgreen";
+            }, 1000);
+        }
+        
+        function updatePlayerList() {
+            playerList.innerHTML = "<h4>Players in Room:</h4>";
+            players.forEach(player => {
+                playerList.innerHTML += `<div>${player.name} ${player.id === myPlayerId ? '(You)' : ''}</div>`;
+            });
+        }
+        
+        // Game functions
+        function startGame() {
+            if (players.length < 2) {
+                alert("Need at least 2 players to start");
+                return;
+            }
+            
+            connectionPanel.style.display = "none";
+            gameControls.style.display = "block";
+            pileArea.style.display = "block";
+            
+            // Initialize game
+            resetGame();
+            dealCards();
+            
+            gameMessage.textContent = "Game started! Looking for players with 7s...";
+        }
+        
+        function createDeck() {
+            deck = [];
+            for (let suit of suits) {
+                for (let value of values) {
+                    deck.push({ suit, value });
+                }
+            }
+            // Add 3 jokers
+            for (let i = 0; i < 3; i++) {
+                deck.push({ suit: 'joker', value: 'Joker' });
+            }
+            return deck;
+        }
+        
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            return deck;
+        }
+        
+        function dealCards() {
+            const deck = shuffleDeck(createDeck());
+            const playersContainer = document.getElementById('playersContainer');
+            playersContainer.innerHTML = '';
+            
+            // Deal cards evenly
+            const cardsPerPlayer = Math.floor(deck.length / players.length);
+            
+            players.forEach((player, index) => {
+                player.cards = deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer);
+                player.isOut = false;
+                
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player';
+                playerDiv.id = `player${player.id}`;
+                playerDiv.innerHTML = `
+                    <h3>${player.name}</h3>
+                    <div class="player-stats">Cards: ${player.cards.length}</div>
+                    <div class="cards" id="player${player.id}Cards"></div>
+                `;
+                playersContainer.appendChild(playerDiv);
+                
+                renderPlayerCards(player.id);
+            });
+            
+            // Find who has 7s to start
+            const playersWithSevens = players.filter(player => 
+                player.cards.some(card => card.value === '7')
+            );
+            
+            if (playersWithSevens.length > 0) {
+                // Randomly select a player with 7s to start
+                currentPlayer = playersWithSevens[Math.floor(Math.random() * playersWithSevens.length)].id;
+                updateTurn();
+                gameMessage.textContent = `${players[currentPlayer].name} has 7s and will start!`;
+            } else {
+                // Extremely rare case - no 7s dealt, just pick random player
+                currentPlayer = players[Math.floor(Math.random() * players.length)].id;
+                updateTurn();
+                gameMessage.textContent = "No 7s dealt! Randomly selecting starting player.";
+            }
+            
+            gameStarted = true;
+        }
+        
+        function renderPlayerCards(playerId) {
+            const cardsContainer = document.getElementById(`player${playerId}Cards`);
+            if (!cardsContainer) return;
+            
+            cardsContainer.innerHTML = '';
+            
+            const player = players.find(p => p.id === playerId);
+            if (!player) return;
+            
+            player.cards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = `card ${card.suit}`;
+                if (card.suit === 'joker') {
+                    cardElement.textContent = '🃏';
+                    cardElement.classList.add('joker');
+                } else {
+                    cardElement.innerHTML = `${card.value}<br>${getSuitSymbol(card.suit)}`;
+                }
+                
+                // Highlight playable cards for current player
+                if (playerId === myPlayerId && currentPlayer === myPlayerId && !player.isOut) {
+                    if (canPlayCard(card)) {
+                        cardElement.classList.add('can-play');
+                    }
+                    cardElement.addEventListener('click', () => selectCard(index));
+                }
+                
+                cardsContainer.appendChild(cardElement);
+            });
+            
+            // Update card count display
+            const statsElement = document.querySelector(`#player${playerId} .player-stats`);
+            if (statsElement) {
+                statsElement.textContent = `Cards: ${player.cards.length}`;
+            }
+            
+            // Update player status
+            const playerDiv = document.getElementById(`player${playerId}`);
+            if (player.isOut) {
+                playerDiv.classList.add('winner');
+                playerDiv.querySelector('h3').textContent = `${player.name} (Winner ${winners.indexOf(playerId) + 1})`;
+            }
+        }
+        
+        function selectCard(index) {
+            if (currentPlayer !== myPlayerId || !gameStarted) return;
+            
+            // Deselect if clicking same card
+            if (selectedCardIndex === index) {
+                selectedCardIndex = null;
+                document.querySelectorAll(`#player${myPlayerId}Cards .card`).forEach(card => {
+                    card.classList.remove('selected');
+                });
+                playCardBtn.disabled = true;
+                return;
+            }
+            
+            selectedCardIndex = index;
+            const card = players.find(p => p.id === myPlayerId).cards[index];
+            
+            // Highlight selected card
+            document.querySelectorAll(`#player${myPlayerId}Cards .card`).forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelectorAll(`#player${myPlayerId}Cards .card`)[index].classList.add('selected');
+            
+            // Enable/disable play button based on card playability
+            playCardBtn.disabled = !canPlayCard(card);
+        }
+        
+        function canPlayCard(card) {
+            // First move must be a 7
+            if (lastPlayedCards.length === 0) {
+                return card.value === '7';
+            }
+            
+            // Jokers can always be played
+            if (card.value === 'Joker') return true;
+            
+            // Get last played card (not joker)
+            const lastPlayed = lastPlayedCards.findLast(c => c.value !== 'Joker');
+            if (!lastPlayed) return true; // if only jokers played
+            
+            // Can play same suit adjacent values
+            if (card.suit === lastPlayed.suit) {
+                const lastIndex = values.indexOf(lastPlayed.value);
+                const cardIndex = values.indexOf(card.value);
+                return Math.abs(cardIndex - lastIndex) === 1;
+            }
+            
+            return false;
+        }
+        
+        function playSelectedCard() {
+            if (selectedCardIndex === null || currentPlayer !== myPlayerId) return;
+            
+            const player = players.find(p => p.id === myPlayerId);
+            const card = player.cards[selectedCardIndex];
+            
+            playCard(myPlayerId, selectedCardIndex);
+        }
+        
+        function playCard(playerId, cardIndex) {
+            const player = players.find(p => p.id === playerId);
+            const card = player.cards[cardIndex];
+            
+            // Remove card from player's hand
+            player.cards.splice(cardIndex, 1);
+            selectedCardIndex = null;
+            
+            // Add to pile
+            lastPlayedCards.push(card);
+            updatePile();
+            
+            // Check if player has won
+            if (player.cards.length === 0 && !player.isOut) {
+                player.isOut = true;
+                winners.push(playerId);
+                
+                if (winners.length === players.length - 1) {
+                    endGame();
+                    return;
+                }
+            }
+            
+            // Update display
+            renderPlayerCards(playerId);
+            
+            // Move to next player
+            moveToNextPlayer();
+        }
+        
+        function updatePile() {
+            const pileCards = document.getElementById('pileCards');
+            pileCards.innerHTML = '';
+            
+            // Show last 3 played cards (or all if less than 3)
+            const cardsToShow = lastPlayedCards.slice(-3);
+            
+            cardsToShow.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = `card ${card.suit}`;
+                if (card.suit === 'joker') {
+                    cardElement.textContent = '🃏';
+                    cardElement.classList.add('joker');
+                } else {
+                    cardElement.innerHTML = `${card.value}<br>${getSuitSymbol(card.suit)}`;
+                }
+                pileCards.appendChild(cardElement);
+            });
+        }
+        
+        function drawFromNextPlayer() {
+            if (currentPlayer !== myPlayerId) return;
+            
+            const player = players.find(p => p.id === myPlayerId);
+            if (player.isOut) return;
+            
+            // Find next player with cards
+            let nextPlayerIndex = (players.findIndex(p => p.id === myPlayerId) + 1;
+            if (nextPlayerIndex >= players.length) nextPlayerIndex = 0;
+            
+            let nextPlayer = players[nextPlayerIndex];
+            while (nextPlayer.cards.length === 0 || nextPlayer.isOut) {
+                nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
+                nextPlayer = players[nextPlayerIndex];
+                if (nextPlayer.id === myPlayerId) {
+                    // No players have cards to draw from
+                    gameMessage.textContent = "No players have cards left to draw from!";
+                    return;
+                }
+            }
+            
+            // Draw a random card from next player
+            const randomIndex = Math.floor(Math.random() * nextPlayer.cards.length);
+            const drawnCard = nextPlayer.cards.splice(randomIndex, 1)[0];
+            player.cards.push(drawnCard);
+            
+            // Update displays
+            renderPlayerCards(myPlayerId);
+            renderPlayerCards(nextPlayer.id);
+            
+            gameMessage.textContent = `You drew ${drawnCard.value}${drawnCard.suit !== 'joker' ? getSuitSymbol(drawnCard.suit) : ''} from ${nextPlayer.name}`;
+            
+            // Check if drawn card is playable
+            if (canPlayCard(drawnCard)) {
+                gameMessage.textContent += " - You can play this card now!";
+                // Auto-select the drawn card if it's playable
+                selectedCardIndex = player.cards.length - 1;
+                renderPlayerCards(myPlayerId);
+                playCardBtn.disabled = false;
+            } else {
+                // End turn if drawn card isn't playable
+                gameMessage.textContent += " - This card can't be played now.";
+                moveToNextPlayer();
+            }
+        }
+        
+        function moveToNextPlayer() {
+            if (!gameStarted) return;
+            
+            // Clear current player's active status
+            document.querySelectorAll('.player').forEach(p => p.classList.remove('active'));
+            
+            // Find next active player
+            let nextPlayerIndex = (players.findIndex(p => p.id === currentPlayer) + 1;
+            if (nextPlayerIndex >= players.length) nextPlayerIndex = 0;
+            
+            let nextPlayer = players[nextPlayerIndex];
+            while (nextPlayer.isOut) {
+                nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
+                nextPlayer = players[nextPlayerIndex];
+            }
+            
+            currentPlayer = nextPlayer.id;
+            updateTurn();
+        }
+        
+        function updateTurn() {
+            // Update all player displays
+            players.forEach(player => {
+                renderPlayerCards(player.id);
+            });
+            
+            // Set active player
+            document.getElementById(`player${currentPlayer}`).classList.add('active');
+            
+            // Update controls based on whose turn it is
+            if (currentPlayer === myPlayerId) {
+                gameMessage.textContent = `${players[currentPlayer].name}'s turn (You)`;
+                drawCardBtn.disabled = false;
+                
+                // Check if player has any playable cards
+                const player = players.find(p => p.id === myPlayerId);
+                const hasPlayableCard = player.cards.some(card => canPlayCard(card));
+                
+                if (!hasPlayableCard) {
+                    gameMessage.textContent += " - You have no playable cards, you must draw";
+                    playCardBtn.disabled = true;
+                }
+            } else {
+                gameMessage.textContent = `${players[currentPlayer].name}'s turn`;
+                drawCardBtn.disabled = true;
+                playCardBtn.disabled = true;
+            }
+            
+            // Clear selection
+            selectedCardIndex = null;
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+        
+        function endGame() {
+            gameStarted = false;
+            const loser = players.find(p => !p.isOut);
+            
+            if (loser) {
+                document.getElementById(`player${loser.id}`).querySelector('h3').textContent += ' (Loser)';
+                gameMessage.textContent = `Game over! ${loser.name} is the last player with cards.`;
+            } else {
+                gameMessage.textContent = "Game over! All players have emptied their hands.";
+            }
+            
+            drawCardBtn.disabled = true;
+            playCardBtn.disabled = true;
+        }
+        
+        function getSuitSymbol(suit) {
+            switch(suit) {
+                case 'hearts': return '♥';
+                case 'diamonds': return '♦';
+                case 'clubs': return '♣';
+                case 'spades': return '♠';
+                default: return '';
+            }
+        }
+        
+        function resetGame() {
+            deck = [];
+            players = [];
+            currentPlayer = null;
+            gameStarted = false;
+            lastPlayedCards = [];
+            winners = [];
+            selectedCardIndex = null;
+            
+            document.getElementById('playersContainer').innerHTML = '';
+            document.getElementById('pileCards').innerHTML = '';
+            
+            drawCardBtn.disabled = true;
+            playCardBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>
